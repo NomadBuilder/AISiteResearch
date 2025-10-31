@@ -1,6 +1,7 @@
 // Enhanced visualization with graph and table views
 
 let graphData = { nodes: [], edges: [] };
+let originalGraphData = { nodes: [], edges: [] }; // Store original unfiltered data
 let domainsData = [];
 let filteredDomains = [];
 let filteredDomainList = [];
@@ -9,7 +10,7 @@ let svg, g;
 let currentSort = { column: null, direction: 'asc' };
 
 // Column visibility configuration
-const defaultVisibleColumns = ['domain', 'isp', 'host_name', 'cms', 'cdn', 'registrar', 'creation_date', 'frameworks'];
+const defaultVisibleColumns = ['domain', 'isp', 'host_name', 'cms', 'cdn', 'registrar', 'creation_date'];
 let visibleColumns = loadColumnPreferences();
 
 // Column definitions
@@ -78,6 +79,10 @@ function initVisualization() {
         switchView("analysis");
         localStorage.setItem('lastView', 'analysis');
     });
+    document.getElementById("about-view-btn").addEventListener("click", () => {
+        switchView("about");
+        localStorage.setItem('lastView', 'about');
+    });
     
     // Don't call switchView here - it will be called after data loads in refreshAll
     
@@ -87,6 +92,15 @@ function initVisualization() {
     
     // List search handler
     document.getElementById("list-search").addEventListener("input", filterDomainList);
+    
+    // Graph search handler
+    document.getElementById("graph-search").addEventListener("input", filterGraph);
+    
+    // Graph type filter handlers (domains are always shown, no filter needed)
+    document.getElementById("filter-host").addEventListener("change", filterGraph);
+    document.getElementById("filter-cdn").addEventListener("change", filterGraph);
+    document.getElementById("filter-cms").addEventListener("change", filterGraph);
+    document.getElementById("filter-registrar").addEventListener("change", filterGraph);
     
     // Column visibility controls
     document.getElementById("show-all-btn").addEventListener("click", showAllColumns);
@@ -142,10 +156,12 @@ function switchView(view) {
     const tableView = document.getElementById("table-view");
     const listView = document.getElementById("list-view");
     const analysisView = document.getElementById("analysis-view");
+    const aboutView = document.getElementById("about-view");
     const graphBtn = document.getElementById("graph-view-btn");
     const tableBtn = document.getElementById("table-view-btn");
     const listBtn = document.getElementById("list-view-btn");
     const analysisBtn = document.getElementById("analysis-view-btn");
+    const aboutBtn = document.getElementById("about-view-btn");
     const resetZoomBtn = document.getElementById("reset-zoom-btn");
     
     // Hide all views
@@ -153,12 +169,14 @@ function switchView(view) {
     tableView.style.display = "none";
     listView.style.display = "none";
     analysisView.style.display = "none";
+    aboutView.style.display = "none";
     
     // Remove active class from all buttons
     graphBtn.classList.remove("active");
     tableBtn.classList.remove("active");
     listBtn.classList.remove("active");
     analysisBtn.classList.remove("active");
+    aboutBtn.classList.remove("active");
     
     if (view === "graph") {
         graphView.style.display = "block";
@@ -188,6 +206,10 @@ function switchView(view) {
         resetZoomBtn.style.display = "none";
         // Load analysis only when tab is active
         loadAnalysis();
+    } else if (view === "about") {
+        aboutView.style.display = "block";
+        aboutBtn.classList.add("active");
+        resetZoomBtn.style.display = "none";
     }
 }
 
@@ -250,9 +272,40 @@ async function loadGraph() {
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        graphData = await response.json();
+        const data = await response.json();
+        
+        // Convert edge IDs to node objects for D3 compatibility
+        const nodeMap = new Map(data.nodes.map(n => [String(n.id), n]));
+        const edgesWithNodes = data.edges.map(edge => {
+            const sourceId = String(edge.source);
+            const targetId = String(edge.target);
+            const sourceNode = nodeMap.get(sourceId);
+            const targetNode = nodeMap.get(targetId);
+            
+            if (sourceNode && targetNode) {
+                return {
+                    ...edge,
+                    source: sourceNode,
+                    target: targetNode
+                };
+            }
+            return null;
+        }).filter(e => e !== null);
+        
+        // Store original with converted edges (node objects, not IDs)
+        originalGraphData = {
+            nodes: [...data.nodes],
+            edges: edgesWithNodes.map(e => ({ ...e })) // Deep copy with node references
+        };
+        
+        // Initialize graphData with all nodes visible
+        graphData = {
+            nodes: [...data.nodes],
+            edges: edgesWithNodes
+        };
+        
         console.log("Graph data loaded:", graphData.nodes?.length, "nodes", graphData.edges?.length, "edges");
-        renderGraph();
+        filterGraph(); // Apply any existing filter
     } catch (error) {
         console.error("Error loading graph:", error);
         // Show error in graph area
@@ -540,6 +593,136 @@ function renderDomainList() {
     });
 }
 
+// Filter graph visualization
+function filterGraph() {
+    const searchTerm = document.getElementById("graph-search").value.toLowerCase();
+    
+    // Get node type filter states (domains are always shown)
+    const showHosts = document.getElementById("filter-host").checked;
+    const showCDNs = document.getElementById("filter-cdn").checked;
+    const showCMS = document.getElementById("filter-cms").checked;
+    const showRegistrars = document.getElementById("filter-registrar").checked;
+    
+    if (originalGraphData.nodes.length === 0) {
+        graphData = { nodes: [], edges: [] };
+        updateGraphCount();
+        renderGraph();
+        return;
+    }
+    
+    // Filter nodes by type first (domains are always included)
+    let filteredNodes = originalGraphData.nodes.filter(node => {
+        const label = (node.label || '').toLowerCase();
+        const nodeType = node.node_type || (label === 'domain' ? 'domain' : 'service');
+        
+        // Domains are always shown
+        if (label === 'domain' || nodeType === 'domain') {
+            // Apply search term if present
+            if (searchTerm) {
+                const props = node.properties || {};
+                const name = (props.name || props.domain || node.id || '').toLowerCase();
+                return name.includes(searchTerm);
+            }
+            return true; // Always show domains if no search term
+        }
+        
+        // Check service type filters
+        if (label === 'host') {
+            if (!showHosts) return false;
+        } else if (label === 'cdn') {
+            if (!showCDNs) return false;
+        } else if (label === 'cms') {
+            if (!showCMS) return false;
+        } else if (label === 'registrar') {
+            if (!showRegistrars) return false;
+        } else {
+            // Unknown service type - include it if any service filter is on
+            if (!showHosts && !showCDNs && !showCMS && !showRegistrars) {
+                return false;
+            }
+        }
+        
+        // Apply search term filter if present
+        if (searchTerm) {
+            const props = node.properties || {};
+            const name = (props.name || props.domain || node.id || '').toLowerCase();
+            
+            // Check if node name or label matches search term
+            if (name.includes(searchTerm) || label.includes(searchTerm)) {
+                return true;
+            }
+            
+            // Check various properties
+            const cdn = (props.cdn || '').toLowerCase();
+            const host = (props.host_name || props.name || '').toLowerCase();
+            const cms = (props.cms || '').toLowerCase();
+            const registrar = (props.registrar || '').toLowerCase();
+            const isp = (props.isp || '').toLowerCase();
+            
+            return cdn.includes(searchTerm) ||
+                   host.includes(searchTerm) ||
+                   cms.includes(searchTerm) ||
+                   registrar.includes(searchTerm) ||
+                   isp.includes(searchTerm);
+        }
+        
+        return true; // Passed type filter, no search term
+    });
+    
+    // Create a map of node IDs to filtered node objects for quick lookup
+    const filteredNodeIdMap = new Map();
+    filteredNodes.forEach(node => {
+        filteredNodeIdMap.set(String(node.id), node);
+    });
+    
+    // Filter edges to only include those connecting filtered nodes
+    // Map edges to reference the filtered node objects (not original ones)
+    const filteredEdges = [];
+    originalGraphData.edges.forEach(edge => {
+        // Get source and target node IDs from edge (edges already have node objects from loadGraph)
+        const sourceId = (typeof edge.source === 'object' && edge.source !== null) 
+            ? String(edge.source.id) 
+            : String(edge.source);
+        const targetId = (typeof edge.target === 'object' && edge.target !== null) 
+            ? String(edge.target.id) 
+            : String(edge.target);
+        
+        // Get the filtered node objects (which are the same objects, just filtered)
+        const sourceNode = filteredNodeIdMap.get(sourceId);
+        const targetNode = filteredNodeIdMap.get(targetId);
+        
+        if (sourceNode && targetNode) {
+            // Create new edge object referencing the filtered nodes
+            filteredEdges.push({
+                ...edge,
+                source: sourceNode,
+                target: targetNode
+            });
+        }
+    });
+    
+    graphData = {
+        nodes: filteredNodes,
+        edges: filteredEdges
+    };
+    
+    // Update count display
+    updateGraphCount();
+    
+    // Re-render graph with filtered data
+    renderGraph();
+}
+
+// Update graph node count display
+function updateGraphCount() {
+    const countElement = document.getElementById("graph-count");
+    if (countElement) {
+        const nodeCount = graphData.nodes?.length || 0;
+        const edgeCount = graphData.edges?.length || 0;
+        countElement.textContent = `${nodeCount} nodes, ${edgeCount} connections`;
+    }
+}
+
 // Filter domain list
 function filterDomainList() {
     const searchTerm = document.getElementById("list-search").value.toLowerCase();
@@ -584,7 +767,7 @@ function hideEmptyColumns() {
     if (domainsData.length === 0) return;
     
     // Always keep these columns visible by default (even if empty)
-    const alwaysVisible = ['domain', 'isp', 'host_name', 'cms', 'cdn', 'registrar', 'creation_date', 'frameworks'];
+    const alwaysVisible = ['domain', 'isp', 'host_name', 'cms', 'cdn', 'registrar', 'creation_date'];
     
     // Check each column for data
     Object.keys(columnDefinitions).forEach(colName => {
@@ -964,6 +1147,7 @@ function renderGraph() {
     }
     
     console.log(`Rendering graph with ${graphData.nodes.length} nodes and ${graphData.edges.length} edges`);
+    updateGraphCount(); // Update count display
     
     // Get SVG dimensions
     const width = parseInt(svg.attr("width")) || 1200;
@@ -1071,6 +1255,9 @@ function renderGraph() {
     
     console.log("Force simulation created with", graphData.nodes.length, "nodes");
     
+    // Track if we've centered on Cloudflare (only do this once on initial load)
+    let cloudflareCentered = false;
+    
     // Update positions on simulation tick
     simulation.on("tick", () => {
         links
@@ -1086,10 +1273,126 @@ function renderGraph() {
         labels
             .attr("x", d => d.x)
             .attr("y", d => d.y + 5);
+        
+        // Center on Cloudflare after simulation stabilizes (only once)
+        if (!cloudflareCentered && simulation.alpha() < 0.1) {
+            cloudflareCentered = true;
+            centerOnCloudflare();
+        }
+    });
+    
+    // Also center on Cloudflare when simulation ends (backup)
+    simulation.on("end", () => {
+        if (!cloudflareCentered) {
+            cloudflareCentered = true;
+            centerOnCloudflare();
+        }
     });
     
     // Add drag behavior after nodes are created
     nodes.call(drag(simulation));
+}
+
+// Center the view on Cloudflare nodes
+function centerOnCloudflare() {
+    if (!graphData.nodes || graphData.nodes.length === 0) return;
+    
+    // Find Cloudflare nodes
+    const cloudflareNodes = graphData.nodes.filter(node => {
+        const props = node.properties || {};
+        const name = (props.name || props.domain || node.id || "").toLowerCase();
+        return name.includes("cloudflare");
+    });
+    
+    if (cloudflareNodes.length === 0) {
+        console.log("No Cloudflare nodes found to center on");
+        return;
+    }
+    
+    console.log(`Centering on ${cloudflareNodes.length} Cloudflare node(s)`);
+    
+    // Find all nodes connected to Cloudflare (neighbors)
+    const cloudflareNodeIds = new Set(cloudflareNodes.map(n => String(n.id)));
+    const connectedNodes = new Set();
+    
+    graphData.edges.forEach(edge => {
+        const sourceId = String(edge.source.id || edge.source);
+        const targetId = String(edge.target.id || edge.target);
+        
+        if (cloudflareNodeIds.has(sourceId)) {
+            connectedNodes.add(targetId);
+        }
+        if (cloudflareNodeIds.has(targetId)) {
+            connectedNodes.add(sourceId);
+        }
+    });
+    
+    // Get all nodes to include in the view (Cloudflare + connected nodes)
+    const nodesToShow = graphData.nodes.filter(node => {
+        const nodeId = String(node.id);
+        return cloudflareNodeIds.has(nodeId) || connectedNodes.has(nodeId);
+    });
+    
+    if (nodesToShow.length === 0) {
+        nodesToShow.push(...cloudflareNodes);
+    }
+    
+    // Calculate bounding box
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    
+    nodesToShow.forEach(node => {
+        if (node.x !== undefined && node.y !== undefined) {
+            const radius = getNodeSize(node) + 20; // Add padding
+            minX = Math.min(minX, node.x - radius);
+            minY = Math.min(minY, node.y - radius);
+            maxX = Math.max(maxX, node.x + radius);
+            maxY = Math.max(maxY, node.y + radius);
+        }
+    });
+    
+    // If no valid coordinates, skip
+    if (minX === Infinity) {
+        console.log("Cloudflare nodes don't have coordinates yet");
+        return;
+    }
+    
+    // Calculate center and dimensions
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    const width = maxX - minX;
+    const height = maxY - minY;
+    
+    // Get SVG dimensions
+    const svgWidth = parseInt(svg.attr("width")) || 1200;
+    const svgHeight = parseInt(svg.attr("height")) || 600;
+    
+    // Calculate zoom level to fit the bounding box with padding
+    const padding = 50;
+    const scaleX = (svgWidth - padding * 2) / width;
+    const scaleY = (svgHeight - padding * 2) / height;
+    const scale = Math.min(scaleX, scaleY, 2); // Cap zoom at 2x
+    
+    // Calculate transform to center on Cloudflare
+    const translateX = svgWidth / 2 - centerX * scale;
+    const translateY = svgHeight / 2 - centerY * scale;
+    
+    // Apply zoom and pan transform
+    // Create a new zoom behavior and apply the transform
+    const zoomBehavior = d3.zoom()
+        .scaleExtent([0.1, 4])
+        .on("zoom", (event) => {
+            g.attr("transform", event.transform);
+        });
+    
+    const transform = d3.zoomIdentity
+        .translate(translateX, translateY)
+        .scale(scale);
+    
+    svg.transition()
+        .duration(1000)
+        .call(zoomBehavior.transform, transform);
+    
+    console.log(`Centered on Cloudflare: scale=${scale.toFixed(2)}, center=(${centerX.toFixed(0)}, ${centerY.toFixed(0)})`);
 }
 
 // Get node size based on type

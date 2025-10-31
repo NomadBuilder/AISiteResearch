@@ -14,6 +14,21 @@ from src.database.neo4j_client import Neo4jClient
 from src.database.postgres_client import PostgresClient
 
 
+def normalize_provider_name(name):
+    """Normalize provider names to merge variants (e.g., 'Cloudflare' and 'Cloudflare, Inc.')."""
+    if not name:
+        return name
+    name_lower = name.lower().strip()
+    # Cloudflare variants
+    if 'cloudflare' in name_lower:
+        return 'Cloudflare, Inc.'
+    # Namecheap variants
+    if 'namecheap' in name_lower:
+        return 'Namecheap, Inc.'
+    # Return original if no normalization needed
+    return name.strip()
+
+
 def read_domains_csv(csv_path: str) -> pd.DataFrame:
     """Read domains from CSV file."""
     try:
@@ -92,31 +107,36 @@ def process_domains(csv_path: str, limit: int = None):
             # Store in Neo4j
             neo4j.create_domain(domain, source, notes)
             
-            # Create host node and link
+            # Create host node and link (normalize host name)
             if enrichment_data.get("ip_address"):
+                host_name = enrichment_data.get("host_name", "Unknown")
+                normalized_host_name = normalize_provider_name(host_name) if host_name != "Unknown" else host_name
+                normalized_isp = normalize_provider_name(enrichment_data.get("isp")) if enrichment_data.get("isp") else None
                 neo4j.create_host(
-                    host_name=enrichment_data.get("host_name", "Unknown"),
+                    host_name=normalized_host_name,
                     ip=enrichment_data["ip_address"],
                     asn=enrichment_data.get("asn"),
                     country=enrichment_data.get("country"),
-                    isp=enrichment_data.get("isp")
+                    isp=normalized_isp
                 )
                 neo4j.link_domain_to_host(domain, enrichment_data["ip_address"])
             
-            # Create CDN node and link
+            # Create CDN node and link (normalize name)
             if enrichment_data.get("cdn"):
-                neo4j.create_cdn(enrichment_data["cdn"])
-                neo4j.link_domain_to_cdn(domain, enrichment_data["cdn"])
+                normalized_cdn = normalize_provider_name(enrichment_data["cdn"])
+                neo4j.create_cdn(normalized_cdn)
+                neo4j.link_domain_to_cdn(domain, normalized_cdn)
             
             # Create CMS node and link
             if enrichment_data.get("cms"):
                 neo4j.create_cms(enrichment_data["cms"])
                 neo4j.link_domain_to_cms(domain, enrichment_data["cms"])
             
-            # Create registrar node and link
+            # Create registrar node and link (normalize name)
             if enrichment_data.get("registrar"):
-                neo4j.create_registrar(enrichment_data["registrar"])
-                neo4j.link_domain_to_registrar(domain, enrichment_data["registrar"])
+                normalized_registrar = normalize_provider_name(enrichment_data["registrar"])
+                neo4j.create_registrar(normalized_registrar)
+                neo4j.link_domain_to_registrar(domain, normalized_registrar)
             
             # Create payment processor nodes and links (don't show in graph, but store for data)
             if enrichment_data.get("payment_processor"):

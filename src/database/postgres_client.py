@@ -279,6 +279,16 @@ class PostgresClient:
         self.conn.commit()
         cursor.close()
     
+    def delete_analysis(self, analysis_type: str = 'infrastructure'):
+        """Delete cached analysis data."""
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            DELETE FROM analysis_cache
+            WHERE analysis_type = %s
+        """, (analysis_type,))
+        self.conn.commit()
+        cursor.close()
+    
     def get_analysis(self, analysis_type: str = 'infrastructure') -> Optional[Dict]:
         """Get cached analysis data."""
         cursor = self.conn.cursor(cursor_factory=RealDictCursor)

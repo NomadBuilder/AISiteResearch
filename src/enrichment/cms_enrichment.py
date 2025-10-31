@@ -295,22 +295,29 @@ def detect_cms_enhanced(domain: str) -> Optional[str]:
                 ("sqs-cdn", "Squarespace"),
                 ("squarespace.com", "Squarespace"),
             ],
-            # Magento
+            # Magento (more specific patterns first to avoid false positives)
             "magento": [
-                ("magento", "Magento"),
-                ("/skin/frontend/", "Magento"),
-                ("mage/", "Magento"),
+                ("/skin/frontend/", "Magento"),  # Very specific Magento path - check first
+                ("/skin/adminhtml/", "Magento"),  # Magento admin skin
+                ("mage/translate.js", "Magento"),  # Specific Magento JS files
+                ("mage/cookies.js", "Magento"),
+                ("mage.js", "Magento"),
+                ("mage/adminhtml", "Magento"),
+                ("/mage/", "Magento"),  # More specific - must be at path boundary
+                ("magento", "Magento"),  # Generic check last
             ],
             # PrestaShop
             "prestashop": [
                 ("prestashop", "PrestaShop"),
-                ("/themes/", "PrestaShop"),
+                ("/themes/prestashop/", "PrestaShop"),  # More specific
+                ("prestashop.js", "PrestaShop"),
             ],
-            # Ghost
+            # Ghost (more specific to avoid false positives)
             "ghost": [
-                ("ghost", "Ghost"),
-                ("ghost.org", "Ghost"),
-                ("/ghost/", "Ghost"),
+                ("ghost.org", "Ghost"),  # Ghost CMS domain - very specific
+                ("/ghost/", "Ghost"),  # Ghost admin path
+                ("ghost.min.js", "Ghost"),  # Ghost JS file
+                ("content/themes/ghost", "Ghost"),  # Ghost theme path
             ],
             # Wix
             "wix": [
@@ -331,7 +338,9 @@ def detect_cms_enhanced(domain: str) -> Optional[str]:
             # OpenCart
             "opencart": [
                 ("opencart", "OpenCart"),
-                ("/catalog/", "OpenCart"),
+                ("/catalog/view/theme/", "OpenCart"),  # More specific - OpenCart theme path
+                ("/catalog/controller/", "OpenCart"),  # More specific - OpenCart controller path
+                ("opencart.js", "OpenCart"),
             ],
         }
         

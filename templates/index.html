@@ -25,7 +25,7 @@
         <!-- View Toggle -->
         <div class="view-toggle">
             <button class="view-btn active" data-view="graph" id="graph-view-btn">
-                📈 Graph View
+                📈 Visualization
             </button>
             <button class="view-btn" data-view="table" id="table-view-btn">
                 📋 Table View
@@ -35,6 +35,9 @@
             </button>
             <button class="view-btn" data-view="analysis" id="analysis-view-btn">
                 🔍 Analysis
+            </button>
+            <button class="view-btn" data-view="about" id="about-view-btn">
+                ℹ️ About
             </button>
         </div>
         
@@ -52,6 +55,33 @@
         
         <!-- Graph View -->
         <div class="view-container" id="graph-view">
+            <div class="graph-controls">
+                <div class="search-box">
+                    <input type="text" id="graph-search" placeholder="🔍 Filter by domain, CDN, host, CMS, registrar..." class="search-input">
+                </div>
+                <div class="graph-filters">
+                    <span class="filter-label">Show service types:</span>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" id="filter-host" checked>
+                        <span>Hosts</span>
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" id="filter-cdn" checked>
+                        <span>CDNs</span>
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" id="filter-cms" checked>
+                        <span>CMS</span>
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" id="filter-registrar" checked>
+                        <span>Registrars</span>
+                    </label>
+                </div>
+                <div class="graph-info">
+                    <span id="graph-count">0 nodes</span>
+                </div>
+            </div>
             <div class="graph-container">
                 <svg id="graph-svg"></svg>
                 <div id="tooltip" class="tooltip"></div>
@@ -197,6 +227,88 @@
                 <h2>🔍 Analysis and Review</h2>
                 <div class="analysis-content" id="analysis-content">
                     <div class="loading">Loading AI analysis...</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- About View -->
+        <div class="view-container" id="about-view" style="display: none;">
+            <div class="about-section">
+                <h2>ℹ️ About This Project</h2>
+                
+                <div class="about-content">
+                    <section class="about-section-block">
+                        <h3>🎯 Project Goals</h3>
+                        <p>
+                            This tool maps and visualizes the infrastructure (hosts, CDNs, CMS, payment processors, domains) 
+                            behind AI-generated non-consensual intimate imagery (NCII) websites. The goal is to help NGOs, 
+                            researchers, and law enforcement track infrastructure patterns and identify service providers 
+                            that enable these harmful sites.
+                        </p>
+                    </section>
+                    
+                    <section class="about-section-block">
+                        <h3>🔍 What This Tool Does</h3>
+                        <ul>
+                            <li><strong>Domain Enrichment:</strong> Collects metadata about domains including hosting providers, CDNs, registrars, and technology stacks</li>
+                            <li><strong>Infrastructure Mapping:</strong> Visualizes relationships between domains and service providers in an interactive graph</li>
+                            <li><strong>Pattern Analysis:</strong> Identifies common infrastructure providers and service concentrations</li>
+                            <li><strong>Data Export:</strong> Exports enriched datasets for further analysis and reporting</li>
+                        </ul>
+                    </section>
+                    
+                    <section class="about-section-block">
+                        <h3>🛡️ Ethics & Safety</h3>
+                        <ul>
+                            <li><strong>No Content Collection:</strong> This tool only collects metadata (IPs, hosting info, tech stack) - no actual website content</li>
+                            <li><strong>Anonymized Data:</strong> Personal information is not stored or collected</li>
+                            <li><strong>Compliance:</strong> Designed to comply with data privacy and NCII laws</li>
+                            <li><strong>Secure Access:</strong> API keys and database credentials are stored securely</li>
+                        </ul>
+                    </section>
+                    
+                    <section class="about-section-block">
+                        <h3>📊 Key Features</h3>
+                        <ul>
+                            <li><strong>Interactive Graph Visualization:</strong> Explore relationships between domains and service providers</li>
+                            <li><strong>Comprehensive Data Table:</strong> View detailed information about each domain with filtering and sorting</li>
+                            <li><strong>AI-Powered Analysis:</strong> Automated identification of high-impact service providers and actionable recommendations</li>
+                            <li><strong>Export Capabilities:</strong> Download data in CSV or JSON formats for reporting and analysis</li>
+                        </ul>
+                    </section>
+                    
+                    <section class="about-section-block">
+                        <h3>🎯 Use Cases</h3>
+                        <ul>
+                            <li><strong>NGOs:</strong> Track infrastructure patterns to identify providers enabling harmful content</li>
+                            <li><strong>Law Enforcement:</strong> Gather evidence and identify service providers for legal action</li>
+                            <li><strong>Researchers:</strong> Study infrastructure patterns and concentration of services</li>
+                            <li><strong>Advocacy Groups:</strong> Contact service providers to request domain removal</li>
+                        </ul>
+                    </section>
+                    
+                    <section class="about-section-block">
+                        <h3>🔧 Technical Details</h3>
+                        <p>
+                            This tool uses free APIs and open-source technologies to enrich domain data:
+                        </p>
+                        <ul>
+                            <li><strong>Data Storage:</strong> Neo4j (graph database) and PostgreSQL (relational database)</li>
+                            <li><strong>Visualization:</strong> D3.js for interactive graph visualization</li>
+                            <li><strong>Enrichment:</strong> WHOIS, DNS, IP geolocation, CMS detection, and technology stack analysis</li>
+                            <li><strong>Web Framework:</strong> Flask for the web interface</li>
+                        </ul>
+                    </section>
+                    
+                    <section class="about-section-block">
+                        <h3>📝 Important Principle</h3>
+                        <p class="highlight-box">
+                            <strong>Service providers (CDNs, hosts, ISPs) are being paid to enable these sites.</strong> 
+                            They must be held accountable, regardless of whether they're acting as intermediaries. 
+                            This tool helps identify these providers and provides actionable recommendations for 
+                            contacting them to request domain removal.
+                        </p>
+                    </section>
                 </div>
             </div>
         </div>
