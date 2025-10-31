@@ -10,7 +10,13 @@ from dotenv import load_dotenv
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.database.neo4j_client import Neo4jClient
+try:
+    from src.database.neo4j_client import Neo4jClient
+    NEO4J_AVAILABLE = True
+except ImportError:
+    NEO4J_AVAILABLE = False
+    Neo4jClient = None
+
 from src.database.postgres_client import PostgresClient
 from src.enrichment.enrichment_pipeline import enrich_domain
 from collections import Counter
@@ -40,18 +46,197 @@ def index():
     return render_template('index.html')
 
 
+def get_graph_from_postgres():
+    """Generate graph data from PostgreSQL instead of Neo4j."""
+    from collections import Counter
+    
+    postgres = PostgresClient()
+    domains = postgres.get_all_enriched_domains()
+    postgres.close()
+    
+    # Build nodes and edges from PostgreSQL data
+    nodes = []
+    edges = []
+    node_id_map = {}  # Map of (type, name) -> node_id
+    node_counter = 0
+    
+    # Service frequency counters
+    service_counts = Counter()
+    
+    # Add domain nodes
+    for domain in domains:
+        domain_name = domain.get('domain', '')
+        if not domain_name:
+            continue
+            
+        node_id = f"domain_{domain_name}"
+        node_id_map[('domain', domain_name)] = node_id
+        
+        nodes.append({
+            "id": node_id,
+            "label": "Domain",
+            "node_type": "domain",
+            "properties": {
+                "domain": domain_name,
+                "name": domain_name
+            }
+        })
+        
+        # Create service nodes and edges
+        # Host
+        if domain.get('host_name'):
+            host_name = domain['host_name']
+            service_counts[('host', host_name)] += 1
+            if ('host', host_name) not in node_id_map:
+                node_counter += 1
+                host_id = f"host_{node_counter}_{host_name}"
+                node_id_map[('host', host_name)] = host_id
+                nodes.append({
+                    "id": host_id,
+                    "label": "Host",
+                    "node_type": "service",
+                    "properties": {
+                        "name": host_name,
+                        "ip": domain.get('ip_address', ''),
+                        "isp": domain.get('isp', '')
+                    }
+                })
+            edges.append({
+                "source": node_id,
+                "target": node_id_map[('host', host_name)],
+                "type": "HOSTED_ON"
+            })
+        
+        # CDN
+        if domain.get('cdn'):
+            cdn_name = domain['cdn']
+            service_counts[('cdn', cdn_name)] += 1
+            if ('cdn', cdn_name) not in node_id_map:
+                node_counter += 1
+                cdn_id = f"cdn_{node_counter}_{cdn_name}"
+                node_id_map[('cdn', cdn_name)] = cdn_id
+                nodes.append({
+                    "id": cdn_id,
+                    "label": "CDN",
+                    "node_type": "service",
+                    "properties": {"name": cdn_name}
+                })
+            edges.append({
+                "source": node_id,
+                "target": node_id_map[('cdn', cdn_name)],
+                "type": "USES_CDN"
+            })
+        
+        # CMS
+        if domain.get('cms'):
+            cms_name = domain['cms']
+            service_counts[('cms', cms_name)] += 1
+            if ('cms', cms_name) not in node_id_map:
+                node_counter += 1
+                cms_id = f"cms_{node_counter}_{cms_name}"
+                node_id_map[('cms', cms_name)] = cms_id
+                nodes.append({
+                    "id": cms_id,
+                    "label": "CMS",
+                    "node_type": "service",
+                    "properties": {"name": cms_name}
+                })
+            edges.append({
+                "source": node_id,
+                "target": node_id_map[('cms', cms_name)],
+                "type": "HAS_CMS"
+            })
+        
+        # Registrar
+        if domain.get('registrar'):
+            registrar_name = domain['registrar']
+            service_counts[('registrar', registrar_name)] += 1
+            if ('registrar', registrar_name) not in node_id_map:
+                node_counter += 1
+                registrar_id = f"registrar_{node_counter}_{registrar_name}"
+                node_id_map[('registrar', registrar_name)] = registrar_id
+                nodes.append({
+                    "id": registrar_id,
+                    "label": "Registrar",
+                    "node_type": "service",
+                    "properties": {"name": registrar_name}
+                })
+            edges.append({
+                "source": node_id,
+                "target": node_id_map[('registrar', registrar_name)],
+                "type": "REGISTERED_BY"
+            })
+    
+    # Filter to top 20 services
+    top_services = service_counts.most_common(20)
+    top_service_keys = {key for key, count in top_services}
+    
+    # Filter nodes and edges
+    domain_nodes = [n for n in nodes if n.get("node_type") == "domain"]
+    service_nodes = [
+        n for n in nodes 
+        if n.get("node_type") == "service" 
+        and any((n["properties"].get("name") == name and 
+                 (n["label"].lower(), name) in top_service_keys) 
+                for name in [n["properties"].get("name")])
+    ]
+    
+    # Keep all service nodes (we'll filter by checking if they're in top_service_keys)
+    all_service_keys_set = {key for key, _ in top_services}
+    filtered_service_nodes = [
+        n for n in nodes if n.get("node_type") == "service"
+        and (n["label"].lower(), n["properties"].get("name")) in all_service_keys_set
+    ]
+    
+    # Filter edges to only include top services
+    filtered_node_ids = {n["id"] for n in domain_nodes + filtered_service_nodes}
+    filtered_edges = [
+        e for e in edges
+        if e.get("source") in filtered_node_ids and e.get("target") in filtered_node_ids
+    ]
+    
+    service_names = [name for (_, name), _ in top_services[:20]]
+    
+    return {
+        "nodes": domain_nodes + filtered_service_nodes,
+        "edges": filtered_edges,
+        "stats": {
+            "total_domains": len(domain_nodes),
+            "total_services": len(filtered_service_nodes),
+            "top_services": service_names
+        }
+    }
+
+
 @app.route('/api/graph')
 def get_graph():
-    """Get graph data from Neo4j, filtered to show top 20 services."""
+    """Get graph data from Neo4j or PostgreSQL, filtered to show top 20 services."""
     from datetime import datetime
     import json
     from collections import Counter
     
-    neo4j = Neo4jClient()
+    # Try Neo4j first, fallback to PostgreSQL
+    if NEO4J_AVAILABLE:
+        try:
+            neo4j = Neo4jClient()
+            graph_data = neo4j.get_all_nodes_and_relationships()
+            neo4j.close()
+        except Exception as e:
+            print(f"Neo4j unavailable, using PostgreSQL: {e}")
+            graph_data = get_graph_from_postgres()
+    else:
+        graph_data = get_graph_from_postgres()
+    
+    if not graph_data:
+        graph_data = get_graph_from_postgres()
     
     try:
-        graph_data = neo4j.get_all_nodes_and_relationships()
         
+        # If graph_data already has the structure from PostgreSQL, return it
+        if "stats" in graph_data and "nodes" in graph_data:
+            return jsonify(graph_data)
+        
+        # Otherwise, process Neo4j format
         # Separate domains from services
         # Only show: Host, CMS, CDN, Registrar
         allowed_service_types = ["host", "cms", "cdn", "registrar"]
@@ -151,18 +336,26 @@ def get_graph():
         import traceback
         print(f"Error in get_graph: {e}")
         traceback.print_exc()
-        return jsonify({"error": str(e), "nodes": [], "edges": []}), 500
-    finally:
-        neo4j.close()
+        # Fallback to PostgreSQL
+        try:
+            fallback_data = get_graph_from_postgres()
+            return jsonify(fallback_data)
+        except Exception as e2:
+            print(f"PostgreSQL fallback also failed: {e2}")
+            return jsonify({"error": str(e), "nodes": [], "edges": []}), 500
 
 
 @app.route('/api/stats')
 def get_stats():
     """Get statistics about the dataset."""
-    neo4j = Neo4jClient()
+    # Use PostgreSQL for stats
+    postgres = PostgresClient()
+    domains = postgres.get_all_enriched_domains()
+    postgres.close()
     
     try:
-        graph_data = neo4j.get_all_nodes_and_relationships()
+        # Generate graph-like structure from PostgreSQL
+        graph_data = get_graph_from_postgres()
         
         nodes = graph_data.get("nodes", [])
         edges = graph_data.get("edges", [])
@@ -180,8 +373,11 @@ def get_stats():
         }
         
         return jsonify(stats)
-    finally:
-        neo4j.close()
+    except Exception as e:
+        import traceback
+        print(f"Error in get_stats: {e}")
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/enrich', methods=['POST'])
@@ -229,35 +425,43 @@ def enrich_and_store():
         domain_id = postgres.insert_domain(domain, source, notes)
         postgres.insert_enrichment(domain_id, enrichment_data)
         
-        # Store in Neo4j
-        neo4j.create_domain(domain, source, notes)
-        
-        # Create host node and link
-        if enrichment_data.get("ip_address"):
-            neo4j.create_host(
-                host_name=enrichment_data.get("host_name", "Unknown"),
-                ip=enrichment_data["ip_address"],
-                asn=enrichment_data.get("asn"),
-                isp=enrichment_data.get("isp")
-            )
-            neo4j.link_domain_to_host(domain, enrichment_data["ip_address"])
-        
-        # Create CDN node and link
-        if enrichment_data.get("cdn"):
-            neo4j.create_cdn(enrichment_data["cdn"])
-            neo4j.link_domain_to_cdn(domain, enrichment_data["cdn"])
-        
-        # Create CMS node and link
-        if enrichment_data.get("cms"):
-            neo4j.create_cms(enrichment_data["cms"])
-            neo4j.link_domain_to_cms(domain, enrichment_data["cms"])
-        
-        # Create payment processor nodes and links
-        if enrichment_data.get("payment_processor"):
-            processors = [p.strip() for p in enrichment_data["payment_processor"].split(",")]
-            for processor in processors:
-                neo4j.create_payment_processor(processor)
-                neo4j.link_domain_to_payment(domain, processor)
+        # Store in Neo4j (optional - only if available)
+        if NEO4J_AVAILABLE:
+            try:
+                neo4j = Neo4jClient()
+                neo4j.create_domain(domain, source, notes)
+                
+                # Create host node and link
+                if enrichment_data.get("ip_address"):
+                    neo4j.create_host(
+                        host_name=enrichment_data.get("host_name", "Unknown"),
+                        ip=enrichment_data["ip_address"],
+                        asn=enrichment_data.get("asn"),
+                        isp=enrichment_data.get("isp")
+                    )
+                    neo4j.link_domain_to_host(domain, enrichment_data["ip_address"])
+                
+                # Create CDN node and link
+                if enrichment_data.get("cdn"):
+                    neo4j.create_cdn(enrichment_data["cdn"])
+                    neo4j.link_domain_to_cdn(domain, enrichment_data["cdn"])
+                
+                # Create CMS node and link
+                if enrichment_data.get("cms"):
+                    neo4j.create_cms(enrichment_data["cms"])
+                    neo4j.link_domain_to_cms(domain, enrichment_data["cms"])
+                
+                # Create payment processor nodes and links
+                if enrichment_data.get("payment_processor"):
+                    processors = [p.strip() for p in enrichment_data["payment_processor"].split(",")]
+                    for processor in processors:
+                        neo4j.create_payment_processor(processor)
+                        neo4j.link_domain_to_payment(domain, processor)
+                
+                neo4j.close()
+            except Exception as e:
+                print(f"Neo4j storage failed (continuing without it): {e}")
+                # Continue without Neo4j - PostgreSQL has all the data we need
         
         return jsonify({
             "message": "Domain enriched and stored successfully",
@@ -275,7 +479,6 @@ def enrich_and_store():
     
     finally:
         postgres.close()
-        neo4j.close()
 
 
 @app.route('/api/domains', methods=['GET'])
