@@ -44,7 +44,7 @@ services:
 
 databases:
   - name: ncii-postgres
-    databaseName: ncii_infra
+    databaseName: ncii
     user: ncii_user
     plan: free
 
