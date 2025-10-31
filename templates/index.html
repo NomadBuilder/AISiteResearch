@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Pornography Infrastructure Mapping - Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 AI Pornography Infrastructure Mapping</h1>
+            <p class="subtitle">Visualizing infrastructure relationships behind domains</p>
+        </header>
+        
+        <!-- Summary Section -->
+        <div class="summary-section" id="summary-section">
+            <h2>📊 Summary & Outliers</h2>
+            <div class="summary-content" id="summary-content">
+                <div class="loading">Loading analytics...</div>
+            </div>
+        </div>
+        
+        <!-- View Toggle -->
+        <div class="view-toggle">
+            <button class="view-btn active" data-view="graph" id="graph-view-btn">
+                📈 Graph View
+            </button>
+            <button class="view-btn" data-view="table" id="table-view-btn">
+                📋 Table View
+            </button>
+            <button class="view-btn" data-view="list" id="list-view-btn">
+                📝 Domain List
+            </button>
+            <button class="view-btn" data-view="analysis" id="analysis-view-btn">
+                🔍 Analysis
+            </button>
+        </div>
+        
+        <!-- Controls -->
+        <div class="controls">
+            <div class="stats" id="stats">
+                <span>Loading statistics...</span>
+            </div>
+            <div class="buttons">
+                <button id="refresh-btn" class="btn btn-primary">🔄 Refresh</button>
+                <button id="reset-zoom-btn" class="btn btn-secondary" style="display: none;">🔍 Reset Zoom</button>
+                <button id="export-btn" class="btn btn-success">💾 Export Data</button>
+            </div>
+        </div>
+        
+        <!-- Graph View -->
+        <div class="view-container" id="graph-view">
+            <div class="graph-container">
+                <svg id="graph-svg"></svg>
+                <div id="tooltip" class="tooltip"></div>
+            </div>
+            
+            <!-- Node Detail Modal -->
+            <div id="node-modal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <span class="modal-close">&times;</span>
+                    <div id="modal-body"></div>
+                </div>
+            </div>
+            
+            <div class="legend">
+                <h3>Node Types</h3>
+                <div class="legend-section">
+                    <h4>Domains (URLs)</h4>
+                    <div class="legend-items">
+                        <div class="legend-item">
+                            <span class="legend-color domain"></span>
+                            <span><strong>Domain</strong> - The websites being analyzed</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="legend-section">
+                    <h4>Services (Top 20 by frequency)</h4>
+                    <div class="legend-items">
+                        <div class="legend-item">
+                            <span class="legend-color host"></span>
+                            <span>Hosting Provider</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color cdn"></span>
+                            <span>CDN</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color cms"></span>
+                            <span>CMS</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color registrar"></span>
+                            <span>Registrar</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Table View -->
+        <div class="view-container" id="table-view" style="display: none;">
+            <div class="table-controls">
+                <div class="search-box">
+                    <input type="text" id="table-search" placeholder="🔍 Search domains, CMS, CDN, country..." class="search-input">
+                </div>
+                <div class="filter-box">
+                    <select id="filter-column" class="filter-select">
+                        <option value="">All Columns</option>
+                        <option value="domain">Domain</option>
+                        <option value="ip_address">IP Address</option>
+                        <option value="country">Country</option>
+                        <option value="isp">ISP</option>
+                        <option value="host_name">Host</option>
+                        <option value="cms">CMS</option>
+                        <option value="cdn">CDN</option>
+                        <option value="web_server">Web Server</option>
+                        <option value="payment_processor">Payment Processor</option>
+                        <option value="registrar">Registrar</option>
+                    </select>
+                </div>
+                <div class="column-controls">
+                    <button id="show-all-btn" class="btn btn-secondary">Show All Columns</button>
+                    <button id="column-toggle-btn" class="btn btn-secondary">📋 Columns</button>
+                    <div id="column-menu" class="column-menu" style="display: none;">
+                        <div class="column-menu-header">Toggle Columns</div>
+                        <div id="column-checkboxes"></div>
+                        <div class="column-menu-footer">
+                            <button id="save-columns-btn" class="btn btn-success">💾 Save</button>
+                            <button id="reset-columns-btn" class="btn btn-secondary">Reset</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="table-wrapper">
+                <table id="domains-table" class="data-table">
+                    <thead>
+                        <tr>
+                            <th class="row-number">#</th>
+                            <th class="sortable col-domain" data-column="domain" data-col="domain">Domain ↕</th>
+                            <th class="sortable col-isp" data-column="isp" data-col="isp">ISP ↕</th>
+                            <th class="sortable col-host" data-column="host_name" data-col="host_name">Host ↕</th>
+                            <th class="sortable col-cms" data-column="cms" data-col="cms">CMS ↕</th>
+                            <th class="sortable col-cdn" data-column="cdn" data-col="cdn">CDN ↕</th>
+                            <th class="sortable col-registrar" data-column="registrar" data-col="registrar">Registrar ↕</th>
+                            <th class="sortable col-created" data-column="creation_date" data-col="creation_date">Created ↕</th>
+                            <th class="col-frameworks" data-col="frameworks">Frameworks</th>
+                            <th class="sortable col-ip hidden-col" data-column="ip_address" data-col="ip_address">IP Address ↕</th>
+                            <th class="sortable col-country hidden-col" data-column="country" data-col="country">Country ↕</th>
+                            <th class="sortable col-asn hidden-col" data-column="asn" data-col="asn">ASN ↕</th>
+                            <th class="sortable col-webserver hidden-col" data-column="web_server" data-col="web_server">Web Server ↕</th>
+                            <th class="sortable col-payment hidden-col" data-column="payment_processor" data-col="payment_processor">Payment ↕</th>
+                            <th class="sortable col-expires hidden-col" data-column="expiration_date" data-col="expiration_date">Expires ↕</th>
+                            <th class="col-analytics hidden-col" data-col="analytics">Analytics</th>
+                            <th class="col-languages hidden-col" data-col="languages">Languages</th>
+                            <th class="col-ipv4 hidden-col" data-col="ip_addresses">IPs (IPv4)</th>
+                            <th class="col-ipv6 hidden-col" data-col="ipv6_addresses">IPv6</th>
+                            <th class="col-nameservers hidden-col" data-col="name_servers">Name Servers</th>
+                            <th class="col-mx hidden-col" data-col="mx_records">MX Records</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr><td colspan="21" class="loading">Loading data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="table-info">
+                <span id="table-count">0 domains</span>
+            </div>
+        </div>
+        
+        <!-- Domain List View -->
+        <div class="view-container" id="list-view" style="display: none;">
+            <div class="list-controls">
+                <div class="search-box">
+                    <input type="text" id="list-search" placeholder="🔍 Search domains..." class="search-input">
+                </div>
+                <div class="list-info">
+                    <span id="list-count">0 domains</span>
+                </div>
+            </div>
+            
+            <div class="domain-list-container">
+                <div id="domain-list" class="domain-list">
+                    <div class="loading">Loading domains...</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Analysis View -->
+        <div class="view-container" id="analysis-view" style="display: none;">
+            <div class="analysis-section">
+                <h2>🔍 Analysis and Review</h2>
+                <div class="analysis-content" id="analysis-content">
+                    <div class="loading">Loading AI analysis...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/visualization.js') }}"></script>
+</body>
+</html>
