@@ -62,7 +62,6 @@ class PostgresClient:
                 ipv6_addresses JSONB,
                 host_name VARCHAR(255),
                 asn VARCHAR(50),
-                country VARCHAR(100),
                 isp VARCHAR(255),
                 cdn VARCHAR(100),
                 cms VARCHAR(100),
@@ -123,12 +122,12 @@ class PostgresClient:
         
         cursor.execute("""
             INSERT INTO domain_enrichment (
-                domain_id, ip_address, ip_addresses, ipv6_addresses, host_name, asn, country, isp,
+                domain_id, ip_address, ip_addresses, ipv6_addresses, host_name, asn, isp,
                 cdn, cms, payment_processor, registrar, creation_date, expiration_date, updated_date,
                 name_servers, mx_records, whois_status, web_server, frameworks, analytics, languages,
                 tech_stack, http_headers, ssl_info, whois_data, dns_records
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (domain_id)
             DO UPDATE SET
                 ip_address = EXCLUDED.ip_address,
@@ -136,7 +135,6 @@ class PostgresClient:
                 ipv6_addresses = EXCLUDED.ipv6_addresses,
                 host_name = EXCLUDED.host_name,
                 asn = EXCLUDED.asn,
-                country = EXCLUDED.country,
                 isp = EXCLUDED.isp,
                 cdn = EXCLUDED.cdn,
                 cms = EXCLUDED.cms,
@@ -165,7 +163,6 @@ class PostgresClient:
             to_json(enrichment_data.get("ipv6_addresses")),
             enrichment_data.get("host_name"),
             enrichment_data.get("asn"),
-            enrichment_data.get("country"),
             enrichment_data.get("isp"),
             enrichment_data.get("cdn"),
             enrichment_data.get("cms"),
@@ -205,7 +202,6 @@ class PostgresClient:
                 de.ipv6_addresses,
                 de.host_name,
                 de.asn,
-                de.country,
                 de.isp,
                 de.cdn,
                 de.cms,

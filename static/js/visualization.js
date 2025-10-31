@@ -4,7 +4,6 @@ let graphData = { nodes: [], edges: [] };
 let originalGraphData = { nodes: [], edges: [] }; // Store original unfiltered data
 let domainsData = [];
 let filteredDomains = [];
-let filteredDomainList = [];
 let simulation;
 let svg, g;
 let currentSort = { column: null, direction: 'asc' };
@@ -24,7 +23,6 @@ const columnDefinitions = {
     'creation_date': 'Created',
     'frameworks': 'Frameworks',
     'ip_address': 'IP Address',
-    'country': 'Country',
     'asn': 'ASN',
     'web_server': 'Web Server',
     'payment_processor': 'Payment',
@@ -71,10 +69,6 @@ function initVisualization() {
         switchView("table");
         localStorage.setItem('lastView', 'table');
     });
-    document.getElementById("list-view-btn").addEventListener("click", () => {
-        switchView("list");
-        localStorage.setItem('lastView', 'list');
-    });
     document.getElementById("analysis-view-btn").addEventListener("click", () => {
         switchView("analysis");
         localStorage.setItem('lastView', 'analysis');
@@ -89,9 +83,6 @@ function initVisualization() {
     // Table search handler
     document.getElementById("table-search").addEventListener("input", filterTable);
     document.getElementById("filter-column").addEventListener("change", filterTable);
-    
-    // List search handler
-    document.getElementById("list-search").addEventListener("input", filterDomainList);
     
     // Graph search handler
     document.getElementById("graph-search").addEventListener("input", filterGraph);
@@ -154,12 +145,10 @@ function initVisualization() {
 function switchView(view) {
     const graphView = document.getElementById("graph-view");
     const tableView = document.getElementById("table-view");
-    const listView = document.getElementById("list-view");
     const analysisView = document.getElementById("analysis-view");
     const aboutView = document.getElementById("about-view");
     const graphBtn = document.getElementById("graph-view-btn");
     const tableBtn = document.getElementById("table-view-btn");
-    const listBtn = document.getElementById("list-view-btn");
     const analysisBtn = document.getElementById("analysis-view-btn");
     const aboutBtn = document.getElementById("about-view-btn");
     const resetZoomBtn = document.getElementById("reset-zoom-btn");
@@ -167,14 +156,12 @@ function switchView(view) {
     // Hide all views
     graphView.style.display = "none";
     tableView.style.display = "none";
-    listView.style.display = "none";
     analysisView.style.display = "none";
     aboutView.style.display = "none";
     
     // Remove active class from all buttons
     graphBtn.classList.remove("active");
     tableBtn.classList.remove("active");
-    listBtn.classList.remove("active");
     analysisBtn.classList.remove("active");
     aboutBtn.classList.remove("active");
     
@@ -192,14 +179,6 @@ function switchView(view) {
         if (domainsData.length === 0) {
             loadDomains();
         }
-    } else if (view === "list") {
-        listView.style.display = "block";
-        listBtn.classList.add("active");
-        resetZoomBtn.style.display = "none";
-        if (domainsData.length === 0) {
-            loadDomains();
-        }
-        renderDomainList();
     } else if (view === "analysis") {
         analysisView.style.display = "block";
         analysisBtn.classList.add("active");
@@ -260,7 +239,12 @@ async function refreshAll() {
     
     // Only restore view if we're initializing (not when user clicks refresh)
     if (!refreshAll._skipViewRestore) {
-        const lastView = localStorage.getItem('lastView') || 'graph';
+        let lastView = localStorage.getItem('lastView') || 'graph';
+        // If saved view was 'list', default to 'graph' since list view was removed
+        if (lastView === 'list') {
+            lastView = 'graph';
+            localStorage.setItem('lastView', 'graph');
+        }
         switchView(lastView);
     }
 }
@@ -504,10 +488,6 @@ function renderAnalytics(analytics) {
             <div class="value">${stats.domains_with_cdn || 0}</div>
         </div>
         <div class="summary-card">
-            <h3>Unique Countries</h3>
-            <div class="value">${stats.unique_countries || 0}</div>
-        </div>
-        <div class="summary-card">
             <h3>Unique ISPs</h3>
             <div class="value">${stats.unique_isps || 0}</div>
         </div>
@@ -544,10 +524,8 @@ async function loadDomains() {
         // Hide empty columns after loading data
         hideEmptyColumns();
         filteredDomains = [...domainsData];
-        filteredDomainList = [...domainsData];
         renderTable();
         updateTableCount();
-        renderDomainList();
     } catch (error) {
         console.error("Error loading domains:", error);
         document.getElementById("table-body").innerHTML = 
@@ -555,43 +533,6 @@ async function loadDomains() {
     }
 }
 
-// Render domain list
-function renderDomainList() {
-    const container = document.getElementById("domain-list");
-    
-    if (filteredDomainList.length === 0) {
-        container.innerHTML = '<div class="loading">No domains found</div>';
-        updateListCount();
-        return;
-    }
-    
-    container.innerHTML = filteredDomainList.map(domain => {
-        const meta = [];
-        if (domain.cms) meta.push(`CMS: ${domain.cms}`);
-        if (domain.cdn) meta.push(`CDN: ${domain.cdn}`);
-        if (domain.isp) meta.push(`ISP: ${domain.isp}`);
-        if (domain.country) meta.push(`📍 ${domain.country}`);
-        
-        return `
-            <div class="domain-list-item" data-domain="${escapeHtml(domain.domain)}">
-                <div class="domain-name">${escapeHtml(domain.domain || 'N/A')}</div>
-                ${meta.length > 0 ? `<div class="domain-meta">${meta.map(m => `<span>${escapeHtml(m)}</span>`).join('')}</div>` : ''}
-            </div>
-        `;
-    }).join('');
-    
-    updateListCount();
-    
-    // Add click handlers
-    container.querySelectorAll('.domain-list-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const domain = item.getAttribute('data-domain');
-            // Could add domain detail view or highlight in other views
-            container.querySelectorAll('.domain-list-item').forEach(i => i.classList.remove('selected'));
-            item.classList.add('selected');
-        });
-    });
-}
 
 // Filter graph visualization
 function filterGraph() {
@@ -723,36 +664,6 @@ function updateGraphCount() {
     }
 }
 
-// Filter domain list
-function filterDomainList() {
-    const searchTerm = document.getElementById("list-search").value.toLowerCase();
-    
-    if (!searchTerm) {
-        filteredDomainList = [...domainsData];
-    } else {
-        filteredDomainList = domainsData.filter(domain => {
-            const domainName = (domain.domain || '').toLowerCase();
-            const cms = (domain.cms || '').toLowerCase();
-            const cdn = (domain.cdn || '').toLowerCase();
-            const isp = (domain.isp || '').toLowerCase();
-            const country = (domain.country || '').toLowerCase();
-            
-            return domainName.includes(searchTerm) ||
-                   cms.includes(searchTerm) ||
-                   cdn.includes(searchTerm) ||
-                   isp.includes(searchTerm) ||
-                   country.includes(searchTerm);
-        });
-    }
-    
-    renderDomainList();
-}
-
-// Update list count
-function updateListCount() {
-    const count = filteredDomainList.length;
-    document.getElementById("list-count").textContent = `${count} domain${count !== 1 ? 's' : ''}`;
-}
 
 // Initialize column visibility
 function initializeColumnVisibility() {
@@ -1014,7 +925,6 @@ function renderTable() {
             'creation_date': `<td class="col-created">${formatDate(domain.creation_date)}</td>`,
             'frameworks': `<td class="col-frameworks" title="${escapeHtml(Array.isArray(frameworks) ? frameworks.join(', ') : (frameworks || ''))}">${formatArray(frameworks)}</td>`,
             'ip_address': `<td class="col-ip" title="${escapeHtml(domain.ip_address || '')}">${escapeHtml(domain.ip_address || '') || '<span class="empty">—</span>'}</td>`,
-            'country': `<td class="col-country">${escapeHtml(domain.country || '') || '<span class="empty">—</span>'}</td>`,
             'asn': `<td class="col-asn">${escapeHtml(domain.asn || '') || '<span class="empty">—</span>'}</td>`,
             'web_server': `<td class="col-webserver" title="${escapeHtml(domain.web_server || '')}">${escapeHtml((domain.web_server || '').substring(0, 20)) || '<span class="empty">—</span>'}</td>`,
             'payment_processor': `<td class="col-payment" title="${escapeHtml(domain.payment_processor || '')}">${escapeHtml((domain.payment_processor || '').substring(0, 20)) || '<span class="empty">—</span>'}</td>`,
@@ -1451,7 +1361,6 @@ function showTooltip(event, d) {
     let content = `<h4>${escapeHtml(name)}</h4>`;
     content += `<p><strong>Type:</strong> ${escapeHtml(d.label || "Unknown")}</p>`;
     
-    if (props.country) content += `<p><strong>Country:</strong> ${escapeHtml(props.country)}</p>`;
     if (props.isp) content += `<p><strong>ISP:</strong> ${escapeHtml(props.isp)}</p>`;
     if (props.asn) content += `<p><strong>ASN:</strong> ${escapeHtml(String(props.asn))}</p>`;
     if (props.source) content += `<p><strong>Source:</strong> ${escapeHtml(props.source)}</p>`;
@@ -1549,10 +1458,6 @@ async function showNodeDetails(node) {
                     ${domainData.asn ? `<div class="info-row">
                         <span class="info-label">ASN:</span>
                         <span class="info-value">${escapeHtml(domainData.asn)}</span>
-                    </div>` : ''}
-                    ${domainData.country ? `<div class="info-row">
-                        <span class="info-label">Country:</span>
-                        <span class="info-value">${escapeHtml(domainData.country)}</span>
                     </div>` : ''}
                 </div>
                 

@@ -14,6 +14,7 @@ prefect==2.14.11
 flask==3.0.0
 flask-cors==4.0.0
 openai>=1.0.0
+gunicorn==21.2.0
 
 # Data processing
 python-dateutil==2.8.2

@@ -44,13 +44,12 @@ class Neo4jClient:
         })
     
     def create_host(self, host_name: str, ip: str, asn: Optional[str] = None, 
-                    country: Optional[str] = None, isp: Optional[str] = None):
+                    isp: Optional[str] = None):
         """Create or update a host node."""
         query = """
         MERGE (h:Host {ip: $ip})
         SET h.name = $host_name,
             h.asn = $asn,
-            h.country = $country,
             h.isp = $isp,
             h.last_seen = datetime()
         RETURN h
@@ -59,7 +58,6 @@ class Neo4jClient:
             "host_name": host_name,
             "ip": ip,
             "asn": asn,
-            "country": country,
             "isp": isp
         })
     

@@ -116,7 +116,6 @@ def process_domains(csv_path: str, limit: int = None):
                     host_name=normalized_host_name,
                     ip=enrichment_data["ip_address"],
                     asn=enrichment_data.get("asn"),
-                    country=enrichment_data.get("country"),
                     isp=normalized_isp
                 )
                 neo4j.link_domain_to_host(domain, enrichment_data["ip_address"])

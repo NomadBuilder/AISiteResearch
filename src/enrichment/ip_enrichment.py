@@ -13,7 +13,6 @@ def enrich_ip_location(ip_address: str) -> Dict:
     result = {
         "host_name": None,
         "asn": None,
-        "country": None,
         "isp": None
     }
     
@@ -33,7 +32,6 @@ def enrich_ip_location(ip_address: str) -> Dict:
         if response.status_code == 200:
             data = response.json()
             
-            result["country"] = data.get("country", "")
             asn_data = data.get("asn", "")
             # Handle ASN as string or dict
             if isinstance(asn_data, dict):
@@ -51,14 +49,13 @@ def enrich_ip_location(ip_address: str) -> Dict:
                 result["host_name"] = org.split()[0] if org.split() else None
         
         # Fallback: Try ip-api.com (free, no key required, 45 req/min)
-        if not result.get("country") or not api_key:
+        if not api_key:
             url = f"http://ip-api.com/json/{ip_address}"
             response = requests.get(url, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
                 if data.get("status") == "success":
-                    result["country"] = result.get("country") or data.get("country", "")
                     asn_str = data.get("as", "")
                     if asn_str:
                         result["asn"] = asn_str.replace("AS", "").strip()
@@ -76,7 +73,6 @@ def enrich_with_alternate_api(ip_address: str) -> Dict:
     result = {
         "host_name": None,
         "asn": None,
-        "country": None,
         "isp": None
     }
     
@@ -90,7 +86,6 @@ def enrich_with_alternate_api(ip_address: str) -> Dict:
         if response.status_code == 200:
             data = response.json()
             if data.get("status") == "success":
-                result["country"] = data.get("country", "")
                 result["asn"] = data.get("as", "").replace("AS", "") if data.get("as") else None
                 result["isp"] = data.get("isp", "")
                 result["host_name"] = data.get("org", "")

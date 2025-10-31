@@ -16,7 +16,7 @@
         
         <!-- Summary Section -->
         <div class="summary-section" id="summary-section">
-            <h2>📊 Summary & Outliers</h2>
+            <h2>Summary & Outliers</h2>
             <div class="summary-content" id="summary-content">
                 <div class="loading">Loading analytics...</div>
             </div>
@@ -25,19 +25,16 @@
         <!-- View Toggle -->
         <div class="view-toggle">
             <button class="view-btn active" data-view="graph" id="graph-view-btn">
-                📈 Visualization
+                Visualization
             </button>
             <button class="view-btn" data-view="table" id="table-view-btn">
-                📋 Table View
-            </button>
-            <button class="view-btn" data-view="list" id="list-view-btn">
-                📝 Domain List
+                Table
             </button>
             <button class="view-btn" data-view="analysis" id="analysis-view-btn">
-                🔍 Analysis
+                Analysis
             </button>
             <button class="view-btn" data-view="about" id="about-view-btn">
-                ℹ️ About
+                About
             </button>
         </div>
         
@@ -47,9 +44,9 @@
                 <span>Loading statistics...</span>
             </div>
             <div class="buttons">
-                <button id="refresh-btn" class="btn btn-primary">🔄 Refresh</button>
-                <button id="reset-zoom-btn" class="btn btn-secondary" style="display: none;">🔍 Reset Zoom</button>
-                <button id="export-btn" class="btn btn-success">💾 Export Data</button>
+                <button id="refresh-btn" class="btn btn-primary">Refresh</button>
+                <button id="reset-zoom-btn" class="btn btn-secondary" style="display: none;">Reset Zoom</button>
+                <button id="export-btn" class="btn btn-success">Export Data</button>
             </div>
         </div>
         
@@ -141,7 +138,6 @@
                         <option value="">All Columns</option>
                         <option value="domain">Domain</option>
                         <option value="ip_address">IP Address</option>
-                        <option value="country">Country</option>
                         <option value="isp">ISP</option>
                         <option value="host_name">Host</option>
                         <option value="cms">CMS</option>
@@ -200,24 +196,6 @@
             
             <div class="table-info">
                 <span id="table-count">0 domains</span>
-            </div>
-        </div>
-        
-        <!-- Domain List View -->
-        <div class="view-container" id="list-view" style="display: none;">
-            <div class="list-controls">
-                <div class="search-box">
-                    <input type="text" id="list-search" placeholder="🔍 Search domains..." class="search-input">
-                </div>
-                <div class="list-info">
-                    <span id="list-count">0 domains</span>
-                </div>
-            </div>
-            
-            <div class="domain-list-container">
-                <div id="domain-list" class="domain-list">
-                    <div class="loading">Loading domains...</div>
-                </div>
             </div>
         </div>
         

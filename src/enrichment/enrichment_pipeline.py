@@ -38,7 +38,6 @@ def enrich_domain(domain: str) -> Dict:
         "ipv6_addresses": [],
         "host_name": None,
         "asn": None,
-        "country": None,
         "isp": None,
         "cdn": None,
         "cms": None,
