@@ -3,14 +3,14 @@
 import sys
 import os
 import time
-import pandas as pd
+# import pandas as pd  # Optional - use CSV module instead
+import csv
 from pathlib import Path
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.enrichment.enrichment_pipeline import enrich_domain
-from src.database.neo4j_client import Neo4jClient
 from src.database.postgres_client import PostgresClient
 
 
@@ -29,22 +29,29 @@ def normalize_provider_name(name):
     return name.strip()
 
 
-def read_domains_csv(csv_path: str) -> pd.DataFrame:
+def read_domains_csv(csv_path: str) -> list:
     """Read domains from CSV file."""
+    domains = []
     try:
-        df = pd.read_csv(csv_path)
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                # Support both 'domain' and 'url' column names
+                domain = row.get('domain') or row.get('url', '').strip()
+                if domain:
+                    # Remove http:// or https:// if present
+                    domain = domain.replace('http://', '').replace('https://', '').replace('www.', '').split('/')[0].strip()
+                    if domain:
+                        domains.append({
+                            'domain': domain,
+                            'source': row.get('source', 'Unknown'),
+                            'notes': row.get('notes', '')
+                        })
         
-        # Validate required columns
-        if "domain" not in df.columns:
-            raise ValueError("CSV must contain a 'domain' column")
+        if not domains:
+            raise ValueError("CSV must contain a 'domain' column with at least one domain")
         
-        # Ensure optional columns exist
-        if "source" not in df.columns:
-            df["source"] = "Unknown"
-        if "notes" not in df.columns:
-            df["notes"] = ""
-        
-        return df
+        return domains
     except Exception as e:
         print(f"Error reading CSV file: {e}")
         raise
@@ -53,27 +60,35 @@ def read_domains_csv(csv_path: str) -> pd.DataFrame:
 def process_domains(csv_path: str, limit: int = None):
     """Process domains from CSV and enrich them."""
     print(f"Reading domains from {csv_path}...")
-    df = read_domains_csv(csv_path)
+    domains_data = read_domains_csv(csv_path)
     
     if limit:
-        df = df.head(limit)
+        domains_data = domains_data[:limit]
     
-    print(f"Found {len(df)} domains to process\n")
+    print(f"Found {len(domains_data)} domains to process\n")
     
     # Initialize database clients
-    neo4j = Neo4jClient()
+    try:
+        from src.database.neo4j_client import Neo4jClient
+        neo4j = Neo4jClient()
+        neo4j_available = True
+    except (ImportError, Exception):
+        neo4j_available = False
+        neo4j = None
+        print("Note: Neo4j not available, storing in PostgreSQL only")
+    
     postgres = PostgresClient()
     
     try:
         ip_api_count = 0
         last_minute_start = time.time()
         
-        for idx, row in df.iterrows():
+        for idx, row in enumerate(domains_data):
             domain = row["domain"].strip()
             source = row.get("source", "Unknown")
             notes = row.get("notes", "")
             
-            print(f"\n[{idx + 1}/{len(df)}] Processing: {domain}")
+            print(f"\n[{idx + 1}/{len(domains_data)}] Processing: {domain}")
             
             # Rate limiting for IP API (45 requests/minute)
             current_time = time.time()
@@ -104,53 +119,58 @@ def process_domains(csv_path: str, limit: int = None):
             domain_id = postgres.insert_domain(domain, source, notes)
             postgres.insert_enrichment(domain_id, enrichment_data)
             
-            # Store in Neo4j
-            neo4j.create_domain(domain, source, notes)
+            # Store in Neo4j (optional)
+            if neo4j_available:
+                try:
+                    neo4j.create_domain(domain, source, notes)
+                    
+                    # Create host node and link (normalize host name)
+                    if enrichment_data.get("ip_address"):
+                        host_name = enrichment_data.get("host_name", "Unknown")
+                        normalized_host_name = normalize_provider_name(host_name) if host_name != "Unknown" else host_name
+                        normalized_isp = normalize_provider_name(enrichment_data.get("isp")) if enrichment_data.get("isp") else None
+                        neo4j.create_host(
+                            host_name=normalized_host_name,
+                            ip=enrichment_data["ip_address"],
+                            asn=enrichment_data.get("asn"),
+                            isp=normalized_isp
+                        )
+                        neo4j.link_domain_to_host(domain, enrichment_data["ip_address"])
+                    
+                    # Create CDN node and link (normalize name)
+                    if enrichment_data.get("cdn"):
+                        normalized_cdn = normalize_provider_name(enrichment_data["cdn"])
+                        neo4j.create_cdn(normalized_cdn)
+                        neo4j.link_domain_to_cdn(domain, normalized_cdn)
+                    
+                    # Create CMS node and link
+                    if enrichment_data.get("cms"):
+                        neo4j.create_cms(enrichment_data["cms"])
+                        neo4j.link_domain_to_cms(domain, enrichment_data["cms"])
+                    
+                    # Create registrar node and link (normalize name)
+                    if enrichment_data.get("registrar"):
+                        normalized_registrar = normalize_provider_name(enrichment_data["registrar"])
+                        neo4j.create_registrar(normalized_registrar)
+                        neo4j.link_domain_to_registrar(domain, normalized_registrar)
+                    
+                    # Create payment processor nodes and links
+                    if enrichment_data.get("payment_processor"):
+                        processors = [p.strip() for p in enrichment_data["payment_processor"].split(",")]
+                        for processor in processors:
+                            neo4j.create_payment_processor(processor)
+                            neo4j.link_domain_to_payment(domain, processor)
+                except Exception as e:
+                    print(f"  ⚠ Neo4j storage failed (continuing): {e}")
             
-            # Create host node and link (normalize host name)
-            if enrichment_data.get("ip_address"):
-                host_name = enrichment_data.get("host_name", "Unknown")
-                normalized_host_name = normalize_provider_name(host_name) if host_name != "Unknown" else host_name
-                normalized_isp = normalize_provider_name(enrichment_data.get("isp")) if enrichment_data.get("isp") else None
-                neo4j.create_host(
-                    host_name=normalized_host_name,
-                    ip=enrichment_data["ip_address"],
-                    asn=enrichment_data.get("asn"),
-                    isp=normalized_isp
-                )
-                neo4j.link_domain_to_host(domain, enrichment_data["ip_address"])
-            
-            # Create CDN node and link (normalize name)
-            if enrichment_data.get("cdn"):
-                normalized_cdn = normalize_provider_name(enrichment_data["cdn"])
-                neo4j.create_cdn(normalized_cdn)
-                neo4j.link_domain_to_cdn(domain, normalized_cdn)
-            
-            # Create CMS node and link
-            if enrichment_data.get("cms"):
-                neo4j.create_cms(enrichment_data["cms"])
-                neo4j.link_domain_to_cms(domain, enrichment_data["cms"])
-            
-            # Create registrar node and link (normalize name)
-            if enrichment_data.get("registrar"):
-                normalized_registrar = normalize_provider_name(enrichment_data["registrar"])
-                neo4j.create_registrar(normalized_registrar)
-                neo4j.link_domain_to_registrar(domain, normalized_registrar)
-            
-            # Create payment processor nodes and links (don't show in graph, but store for data)
-            if enrichment_data.get("payment_processor"):
-                processors = [p.strip() for p in enrichment_data["payment_processor"].split(",")]
-                for processor in processors:
-                    neo4j.create_payment_processor(processor)
-                    neo4j.link_domain_to_payment(domain, processor)
-            
-            print(f"  ✓ Stored in databases")
+            print(f"  ✓ Stored in database")
     
     finally:
-        neo4j.close()
+        if neo4j_available and neo4j:
+            neo4j.close()
         postgres.close()
     
-    print(f"\n✓ Processing complete! Enriched {len(df)} domains.")
+    print(f"\n✓ Processing complete! Enriched {len(domains_data)} domains.")
 
 
 if __name__ == "__main__":
