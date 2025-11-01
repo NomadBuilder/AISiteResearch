@@ -2,7 +2,7 @@
 python-whois==0.8.0
 dnspython==2.4.2
 requests==2.31.0
-pandas==2.1.4
+pandas>=2.2.0
 # neo4j==5.15.0  # Optional - app works without Neo4j using PostgreSQL only
 psycopg2-binary==2.9.9
 python-dotenv==1.0.0
