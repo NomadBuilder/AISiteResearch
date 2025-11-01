@@ -27,6 +27,28 @@ class PostgresClient:
         """Close the database connection."""
         self.conn.close()
     
+    def _ensure_connection(self):
+        """Ensure database connection is alive, reconnect if needed."""
+        try:
+            # Try a simple query to check if connection is alive
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT 1")
+            cursor.close()
+        except (psycopg2.OperationalError, psycopg2.InterfaceError, AttributeError):
+            # Connection is dead, reconnect
+            print("  ⚠️  Database connection lost, reconnecting...")
+            try:
+                self.conn.close()
+            except:
+                pass
+            self.conn = psycopg2.connect(
+                host=os.getenv("POSTGRES_HOST", "localhost"),
+                port=os.getenv("POSTGRES_PORT", "5432"),
+                user=os.getenv("POSTGRES_USER", "ncii_user"),
+                password=os.getenv("POSTGRES_PASSWORD", "ncii123password"),
+                database=os.getenv("POSTGRES_DB", "ncii_infra")
+            )
+    
     def _create_tables(self):
         """Create necessary tables if they don't exist."""
         cursor = self.conn.cursor()
@@ -92,6 +114,7 @@ class PostgresClient:
     
     def insert_domain(self, domain: str, source: str, notes: str = "") -> int:
         """Insert or update a domain and return its ID."""
+        self._ensure_connection()
         cursor = self.conn.cursor()
         
         cursor.execute("""
@@ -112,6 +135,7 @@ class PostgresClient:
     
     def insert_enrichment(self, domain_id: int, enrichment_data: Dict):
         """Insert or update enrichment data for a domain."""
+        self._ensure_connection()
         cursor = self.conn.cursor()
         
         # Convert dict/list fields to JSON for PostgreSQL
