@@ -35,19 +35,7 @@ Make sure your code is committed and pushed to GitHub. The following files shoul
 
 ## Step 3: Deploy Web Service on Render
 
-### Option A: Using render.yaml (Recommended)
-
-1. In Render Dashboard, click **"New +"** → **"Blueprint"**
-2. Connect your GitHub repository
-3. Render will automatically detect `render.yaml`
-4. Click **"Apply"** to create the services
-5. After creation, go to your web service settings and add these environment variables manually:
-   - `OPENAI_API_KEY` - (Optional) If you want to use OpenAI for analysis
-   - `SECRET_KEY` - Generate with: `openssl rand -hex 32`
-   
-   **Note**: Neo4j variables are NOT needed - the app works with PostgreSQL only!
-
-### Option B: Manual Setup
+**Note**: Blueprint deployment requires a paid plan. Use manual setup instead:
 
 1. In Render Dashboard, click **"New +"** → **"Web Service"**
 2. Connect your GitHub repository
