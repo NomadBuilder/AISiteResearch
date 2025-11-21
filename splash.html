@@ -90,7 +90,24 @@
     .analysis-panel { background: rgba(15, 23, 42, 0.4); border-radius: var(--radius-lg); padding: 3rem; border: 1px solid rgba(255, 255, 255, 0.06); }
     .analysis-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
     @media (max-width: 880px) { .analysis-inner { grid-template-columns: 1fr; } }
-    .analysis-graph { min-height: 300px; background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md); }
+    .analysis-graph { 
+      min-height: 500px;
+      background: rgba(0, 0, 0, 0.3); 
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .analysis-graph img {
+      width: 100%;
+      height: auto;
+      max-height: 600px;
+      object-fit: contain;
+      display: block;
+    }
 
   </style>
 </head>
@@ -209,7 +226,9 @@
                 <a href="/dashboard" class="btn btn--primary">See the data</a>
               </div>
             </div>
-            <div class="analysis-graph"></div>
+            <div class="analysis-graph">
+              <img src="{{ url_for('static', filename='images/nodes.png') }}" alt="Infrastructure Graph Visualization showing connections between domains and service providers" />
+            </div>
           </div>
         </div>
       </div>
