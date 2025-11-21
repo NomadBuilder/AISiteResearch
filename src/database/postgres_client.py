@@ -14,13 +14,19 @@ class PostgresClient:
     """Client for interacting with PostgreSQL database."""
     
     def __init__(self):
-        self.conn = psycopg2.connect(
-            host=os.getenv("POSTGRES_HOST", "localhost"),
-            port=os.getenv("POSTGRES_PORT", "5432"),
-            user=os.getenv("POSTGRES_USER", "ncii_user"),
-            password=os.getenv("POSTGRES_PASSWORD", "ncii123password"),
-            database=os.getenv("POSTGRES_DB", "ncii_infra")
-        )
+        # Render PostgreSQL requires SSL connections
+        connect_params = {
+            "host": os.getenv("POSTGRES_HOST", "localhost"),
+            "port": os.getenv("POSTGRES_PORT", "5432"),
+            "user": os.getenv("POSTGRES_USER", "ncii_user"),
+            "password": os.getenv("POSTGRES_PASSWORD", "ncii123password"),
+            "database": os.getenv("POSTGRES_DB", "ncii_infra")
+        }
+        # Add SSL for Render PostgreSQL (required for external connections)
+        if os.getenv("POSTGRES_HOST", "").endswith(".render.com"):
+            connect_params["sslmode"] = "require"
+        
+        self.conn = psycopg2.connect(**connect_params)
         self._create_tables()
     
     def close(self):
@@ -41,13 +47,19 @@ class PostgresClient:
                 self.conn.close()
             except:
                 pass
-            self.conn = psycopg2.connect(
-                host=os.getenv("POSTGRES_HOST", "localhost"),
-                port=os.getenv("POSTGRES_PORT", "5432"),
-                user=os.getenv("POSTGRES_USER", "ncii_user"),
-                password=os.getenv("POSTGRES_PASSWORD", "ncii123password"),
-                database=os.getenv("POSTGRES_DB", "ncii_infra")
-            )
+            # Render PostgreSQL requires SSL connections
+            connect_params = {
+                "host": os.getenv("POSTGRES_HOST", "localhost"),
+                "port": os.getenv("POSTGRES_PORT", "5432"),
+                "user": os.getenv("POSTGRES_USER", "ncii_user"),
+                "password": os.getenv("POSTGRES_PASSWORD", "ncii123password"),
+                "database": os.getenv("POSTGRES_DB", "ncii_infra")
+            }
+            # Add SSL for Render PostgreSQL (required for external connections)
+            if os.getenv("POSTGRES_HOST", "").endswith(".render.com"):
+                connect_params["sslmode"] = "require"
+            
+            self.conn = psycopg2.connect(**connect_params)
     
     def _create_tables(self):
         """Create necessary tables if they don't exist."""
