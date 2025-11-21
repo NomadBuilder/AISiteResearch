@@ -28,3 +28,4 @@ caffeinate -dimsu -w $$ python3 scripts/enrich_missing_only.py 2>&1 | tee enrich
 echo ""
 echo "✅ Enrichment complete! Mac can sleep normally now."
 
+

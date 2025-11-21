@@ -3,14 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Pornography Infrastructure Mapping - Dashboard</title>
+    <title>ShadowStack - Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
+    {% from "_navigation.html" import render_nav %}
+    {{ render_nav('data') }}
     <div class="container">
         <header>
-            <h1>🔍 AI Pornography Infrastructure Mapping</h1>
+            <h1>🔍 ShadowStack</h1>
             <p class="subtitle">Visualizing infrastructure relationships behind domains</p>
         </header>
         
@@ -204,7 +206,92 @@
             <div class="analysis-section">
                 <h2>🔍 Analysis and Review</h2>
                 <div class="analysis-content" id="analysis-content">
-                    <div class="loading">Loading AI analysis...</div>
+                    <h3>Executive Summary</h3>
+                    <p>This analysis examines infrastructure patterns across 110 domains associated with AI-generated non-consensual intimate imagery (NCII). The data reveals significant concentration of infrastructure services, with several providers enabling disproportionately large numbers of these domains through CDN, hosting, and network services.</p>
+                    <p>IMPORTANT: Service providers (CDNs, hosts, ISPs) are being paid to enable these sites and should be held accountable, even if they're acting as intermediaries like Cloudflare.</p>
+                    
+                    <h3>Key Findings</h3>
+                    <p>Infrastructure Breakdown:</p>
+                    <ul>
+                        <li>Cloudflare, Inc.: hosts 45.5% of all domains (50 domains), serves as CDN for 53.6% of domains (59 domains), provides ISP services for 45.5% of domains (50 domains)</li>
+                        <li>Namecheap, Inc. is the registrar for 40.9% of domains (45 domains)</li>
+                    </ul>
+                    
+                    <h3>Bad Actors Identified</h3>
+                    <p>Key Principle: All service providers in the chain (CDN, Host, ISP) are being paid and should be held accountable, including intermediaries like Cloudflare.</p>
+                    
+                    <h4>Priority 1: High-Impact Service Providers (>40% market share)</h4>
+                    <p>Service Providers (CDN + Host + ISP combined - these are being paid):</p>
+                    <ul>
+                        <li>Cloudflare, Inc.: 59 domains (53.6%) - CRITICAL PRIORITY</li>
+                    </ul>
+                    
+                    <p>Hosting Providers:</p>
+                    <ul>
+                        <li>(All top hosting providers already listed in Service Providers section)</li>
+                    </ul>
+                    
+                    <p>Registrars:</p>
+                    <ul>
+                        <li>Namecheap, Inc.: 45 domains (40.9%) - CRITICAL PRIORITY</li>
+                        <li>GoDaddy.com, LLC: 11 domains (10.0%) - HIGH PRIORITY</li>
+                    </ul>
+                    
+                    <p>CDNs:</p>
+                    <ul>
+                        <li>(All top CDNs already listed in Service Providers section)</li>
+                    </ul>
+                    
+                    <h3>Recommendations</h3>
+                    <h4>Immediate Action Items</h4>
+                    <p>CRITICAL: Service providers (CDNs, hosts, ISPs) are being paid to enable these sites and must be held accountable, regardless of whether they are intermediaries.</p>
+                    <ol>
+                        <li>Contact Cloudflare, Inc. (Priority: CRITICAL)
+                            <ul>
+                                <li>They provide services (CDN/Host/ISP) to 53.6% of all domains, They host 45.5% of all domains, They serve 53.6% of domains via CDN</li>
+                                <li>They are being paid to enable these sites</li>
+                                <li>Abuse contact: abuse@cloudflare.com</li>
+                                <li>Reference: They are profiting from enabling NCII content distribution</li>
+                            </ul>
+                        </li>
+                        <li>Contact Namecheap, Inc. (Priority: CRITICAL)
+                            <ul>
+                                <li>They register 40.9% of all domains in this dataset</li>
+                                <li>Focus on their abuse department</li>
+                                <li>Reference: Domain registration terms violations, hosting NCII content</li>
+                            </ul>
+                        </li>
+                    </ol>
+                    
+                    <div class="bad-actor-list">
+                        <h4>Top Infrastructure Providers by Domain Count</h4>
+                        <p style="margin-bottom: 15px; color: #f97373; font-weight: bold;">⚠️ All service providers (CDN, Host, ISP) are being paid to enable these sites and should be held accountable.</p>
+                        <div class="bad-actor-item" style="background: rgba(217, 53, 62, 0.15); border-left: 4px solid #d9353e; padding: 10px; margin-bottom: 15px; color: #f3f4f7;">
+                            <strong style="color: #f3f4f7;">🚨 Service Providers (CDN + Host + ISP - Being Paid):</strong>
+                            <ul style="color: #f3f4f7; margin-top: 8px;">
+                                <li style="color: #f3f4f7;"><strong style="color: #f3f4f7;">Cloudflare, Inc.</strong>: 59 domains (53.6%)</li>
+                            </ul>
+                        </div>
+                        <div class="bad-actor-item" style="color: #f3f4f7;">
+                            <strong style="color: #f3f4f7;">Hosting Providers:</strong>
+                            <ul style="color: #f3f4f7; margin-top: 8px;">
+                                <li style="color: #f3f4f7;">Cloudflare, Inc.: 50 domains (45.5%)</li>
+                            </ul>
+                        </div>
+                        <div class="bad-actor-item" style="color: #f3f4f7;">
+                            <strong style="color: #f3f4f7;">Registrars:</strong>
+                            <ul style="color: #f3f4f7; margin-top: 8px;">
+                                <li style="color: #f3f4f7;">Namecheap, Inc.: 45 domains (40.9%)</li>
+                                <li style="color: #f3f4f7;">GoDaddy.com, LLC: 11 domains (10.0%)</li>
+                            </ul>
+                        </div>
+                        <div class="bad-actor-item" style="color: #f3f4f7;">
+                            <strong style="color: #f3f4f7;">CDNs:</strong>
+                            <ul style="color: #f3f4f7; margin-top: 8px;">
+                                <li style="color: #f3f4f7;">Cloudflare, Inc.: 59 domains (53.6%)</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -42,8 +42,66 @@ openai_client = OpenAI(api_key=OPENAI_API_KEY) if (OPENAI_AVAILABLE and OPENAI_A
 
 @app.route('/')
 def index():
-    """Render the main visualization page."""
-    return render_template('index.html')
+    """Render the splash/landing page."""
+    return render_template('splash.html')
+
+
+@app.route('/dashboard')
+def dashboard():
+    """Render the main visualization dashboard."""
+    return render_template('dashboard.html')
+
+
+@app.route('/action')
+def action():
+    """Render the action/take action page."""
+    return render_template('action.html')
+
+
+@app.route('/check')
+def check():
+    """Render the URL check/analysis page."""
+    return render_template('check.html')
+
+
+@app.route('/api/check', methods=['POST'])
+def check_domain_only():
+    """
+    Check/enrich a domain WITHOUT storing it in the database.
+    This is for one-off analysis only.
+    
+    POST /api/check
+    Body: {
+        "domain": "example.com"
+    }
+    """
+    data = request.get_json()
+    
+    if not data or 'domain' not in data:
+        return jsonify({"error": "Domain is required"}), 400
+    
+    domain = data['domain'].strip()
+    
+    try:
+        # Enrich domain but DON'T store it
+        print(f"Checking domain (no storage): {domain}")
+        enrichment_data = enrich_domain(domain)
+        
+        return jsonify({
+            "message": "Domain analyzed successfully (not stored)",
+            "domain": domain,
+            "data": enrichment_data,
+            "status": "checked"
+        }), 200
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "error": str(e),
+            "domain": domain,
+            "status": "error"
+        }), 500
 
 
 def get_graph_from_postgres():
@@ -593,11 +651,8 @@ def get_ai_analysis():
     postgres = PostgresClient()
     
     try:
-        # Check if user wants to force regeneration (bypass cache)
-        force_regenerate = request.args.get('force', 'false').lower() == 'true'
-        
-        # Check for cached analysis first (unless forcing regeneration)
-        cached = None if force_regenerate else postgres.get_analysis('infrastructure')
+        # ALWAYS check for cached analysis first
+        cached = postgres.get_analysis('infrastructure')
         if cached:
             cached_data = cached['analysis_data']
             return jsonify({
@@ -607,6 +662,16 @@ def get_ai_analysis():
                 "cached": True,
                 "updated_at": str(cached['updated_at'])
             })
+        
+        # Only generate new analysis if explicitly requested AND no cache exists
+        force_regenerate = request.args.get('force', 'false').lower() == 'true'
+        if not force_regenerate:
+            # No cache and not forcing - return message to user
+            return jsonify({
+                "error": "No cached analysis available. Use ?force=true to generate new analysis.",
+                "cached": False,
+                "needs_regeneration": True
+            }), 200
         
         domains = postgres.get_all_enriched_domains()
         

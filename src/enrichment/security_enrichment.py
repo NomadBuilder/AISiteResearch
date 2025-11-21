@@ -144,3 +144,4 @@ def check_threat_intelligence(domain: str, ip_address: str = None) -> Dict:
     
     return result
 
+

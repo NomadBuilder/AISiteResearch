@@ -76,3 +76,4 @@ def enrich_dns_security(domain: str) -> Dict:
     
     return result
 
+

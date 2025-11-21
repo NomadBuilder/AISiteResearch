@@ -78,3 +78,4 @@ cd /Users/aazir/ncii-infra-mapping && tail -f enrichment.log
 - Mac `caffeinate` only works while the script runs
 - For long-term, consider UptimeRobot or upgrading Render to always-on ($7/month)
 
+

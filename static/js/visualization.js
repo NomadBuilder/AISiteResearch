@@ -183,8 +183,7 @@ function switchView(view) {
         analysisView.style.display = "block";
         analysisBtn.classList.add("active");
         resetZoomBtn.style.display = "none";
-        // Load analysis only when tab is active
-        loadAnalysis();
+        // Analysis content is now static HTML - no API call needed
     } else if (view === "about") {
         aboutView.style.display = "block";
         aboutBtn.classList.add("active");
@@ -338,135 +337,7 @@ async function loadAnalytics() {
 }
 
 // Load AI analysis
-async function loadAnalysis() {
-    try {
-        const response = await fetch("/api/analysis");
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        renderAnalysis(data);
-    } catch (error) {
-        console.error("Error loading analysis:", error);
-        document.getElementById("analysis-content").innerHTML = 
-            '<div class="loading">Error loading analysis. Please try again later.</div>';
-    }
-}
-
-// Render AI analysis
-function renderAnalysis(data) {
-    const container = document.getElementById("analysis-content");
-    
-    if (data.error) {
-        container.innerHTML = `<div class="loading">Error: ${escapeHtml(data.error)}</div>`;
-        return;
-    }
-    
-    let html = '';
-    
-    // Parse markdown-like content and clean formatting
-    if (data.analysis) {
-        let analysisHtml = data.analysis;
-        
-        // Remove markdown bold markers that weren't cleaned
-        analysisHtml = analysisHtml.replace(/\*\*/g, '');
-        
-        // Convert markdown headers to HTML
-        analysisHtml = analysisHtml
-            .replace(/^### (.*$)/gim, '<h4>$1</h4>')
-            .replace(/^## (.*$)/gim, '<h3>$1</h3>')
-            .replace(/^# (.*$)/gim, '<h3>$1</h3>');
-        
-        // Convert lists
-        analysisHtml = analysisHtml
-            .replace(/^- (.*$)/gim, '<li>$1</li>')
-            .replace(/^\* (.*$)/gim, '<li>$1</li>')
-            .replace(/^\d+\. (.*$)/gim, '<li>$1</li>');
-        
-        // Split into paragraphs and process
-        let paragraphs = analysisHtml.split(/\n\n+/);
-        let processedParagraphs = [];
-        
-        for (let para of paragraphs) {
-            para = para.trim();
-            if (!para) continue;
-            
-            // If it's a header, keep as is
-            if (para.match(/^<h[34]>/)) {
-                processedParagraphs.push(para);
-            }
-            // If it contains list items, wrap in ul
-            else if (para.includes('<li>')) {
-                processedParagraphs.push('<ul>' + para.replace(/\n/g, '') + '</ul>');
-            }
-            // Regular paragraph
-            else {
-                para = para.replace(/\n/g, ' ').trim();
-                if (para) {
-                    processedParagraphs.push('<p>' + para + '</p>');
-                }
-            }
-        }
-        
-        html = '<div class="analysis-text">' + processedParagraphs.join('\n') + '</div>';
-    }
-    
-        // Add bad actors list if available
-        if (data.bad_actors) {
-            html += '<div class="bad-actor-list">';
-            html += '<h4>Top Infrastructure Providers by Domain Count</h4>';
-            html += '<p style="margin-bottom: 15px; color: #dc3545; font-weight: bold;">⚠️ All service providers (CDN, Host, ISP) are being paid to enable these sites and should be held accountable.</p>';
-            
-            if (data.bad_actors.top_service_providers && data.bad_actors.top_service_providers.length > 0) {
-                html += '<div class="bad-actor-item" style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin-bottom: 15px;">';
-                html += '<strong>🚨 Service Providers (CDN + Host + ISP - Being Paid):</strong><ul>';
-                data.bad_actors.top_service_providers.forEach(item => {
-                    html += `<li><strong>${escapeHtml(item.name)}</strong>: ${item.count} domains (${item.percentage}%)</li>`;
-                });
-                html += '</ul></div>';
-            }
-            
-            if (data.bad_actors.top_hosts && data.bad_actors.top_hosts.length > 0) {
-                html += '<div class="bad-actor-item">';
-                html += '<strong>Hosting Providers:</strong><ul>';
-                data.bad_actors.top_hosts.forEach(item => {
-                    html += `<li>${escapeHtml(item.name)}: ${item.count} domains (${item.percentage}%)</li>`;
-                });
-                html += '</ul></div>';
-            }
-        
-        if (data.bad_actors.top_registrars && data.bad_actors.top_registrars.length > 0) {
-            html += '<div class="bad-actor-item">';
-            html += '<strong>Registrars:</strong><ul>';
-            data.bad_actors.top_registrars.forEach(item => {
-                html += `<li>${escapeHtml(item.name)}: ${item.count} domains (${item.percentage}%)</li>`;
-            });
-            html += '</ul></div>';
-        }
-        
-        if (data.bad_actors.top_isps && data.bad_actors.top_isps.length > 0) {
-            html += '<div class="bad-actor-item">';
-            html += '<strong>ISPs:</strong><ul>';
-            data.bad_actors.top_isps.forEach(item => {
-                html += `<li>${escapeHtml(item.name)}: ${item.count} domains (${item.percentage}%)</li>`;
-            });
-            html += '</ul></div>';
-        }
-        
-        if (data.bad_actors.top_cdns && data.bad_actors.top_cdns.length > 0) {
-            html += '<div class="bad-actor-item">';
-            html += '<strong>CDNs:</strong><ul>';
-            data.bad_actors.top_cdns.forEach(item => {
-                html += `<li>${escapeHtml(item.name)}: ${item.count} domains (${item.percentage}%)</li>`;
-            });
-            html += '</ul></div>';
-        }
-        
-        html += '</div>';
-    }
-    
-    container.innerHTML = html;
-}
+// Analysis is now static HTML - no API calls needed
 
 // Render analytics summary
 function renderAnalytics(analytics) {

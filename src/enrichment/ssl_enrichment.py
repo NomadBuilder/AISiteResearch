@@ -75,3 +75,4 @@ def enrich_ssl_certificate(domain: str) -> Dict:
     
     return result
 
+
